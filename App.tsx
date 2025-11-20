@@ -4,6 +4,7 @@ import Hero from './components/Hero';
 import Portfolio from './components/Portfolio';
 import Contact from './components/Contact';
 import Footer from './components/Footer';
+import AiMuse from './components/AiMuse';
 
 const App: React.FC = () => {
   return (
@@ -15,6 +16,7 @@ const App: React.FC = () => {
         <Contact />
       </main>
       <Footer />
+      <AiMuse />
     </div>
   );
 };

@@ -1,151 +1,137 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Sparkles, Send, Bot, User, Terminal } from 'lucide-react';
-import { SectionId, ChatMessage } from '../types';
+import { X, Send, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { sendMessageToMuse } from '../services/geminiService';
 
+interface Message {
+  id: string;
+  text: string;
+  sender: 'user' | 'ai';
+}
+
 const AiMuse: React.FC = () => {
-  const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'model', text: "你好。我是 Aura，这个作品集的数字意识。我可以为你阐述设计哲学、评估创意或生成抽象概念。你在想什么？" }
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([
+    { id: '0', text: '你好！我是 Muse，你的创意助手。有什么我可以帮你的吗？', sender: 'ai' }
   ]);
-  const [isThinking, setIsThinking] = useState(false);
+  const [inputText, setInputText] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  useEffect(scrollToBottom, [messages]);
 
-  const handleSend = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!input.trim() || isThinking) return;
+  const handleSend = async () => {
+    if (!inputText.trim() || isLoading) return;
 
-    const userMsg: ChatMessage = { role: 'user', text: input };
+    const userMsg: Message = { id: Date.now().toString(), text: inputText, sender: 'user' };
     setMessages(prev => [...prev, userMsg]);
-    setInput('');
-    setIsThinking(true);
+    setInputText('');
+    setIsLoading(true);
 
     try {
-      const streamResult = await sendMessageToMuse(userMsg.text);
-      
-      // Add a placeholder for the model response
-      setMessages(prev => [...prev, { role: 'model', text: '' }]);
-
-      let fullText = '';
-      
-      for await (const chunk of streamResult) {
-        const chunkText = chunk.text || '';
-        fullText += chunkText;
-        
-        setMessages(prev => {
-            const newHistory = [...prev];
-            const lastIndex = newHistory.length - 1;
-            newHistory[lastIndex] = { ...newHistory[lastIndex], text: fullText };
-            return newHistory;
-        });
-      }
-    } catch (error) {
-      setMessages(prev => [...prev, { role: 'model', text: "我似乎与神经链接断开了连接。请稍后再试。", isError: true }]);
+      const response = await sendMessageToMuse(inputText);
+      const aiMsg: Message = { 
+        id: (Date.now() + 1).toString(), 
+        text: response.text || '...', 
+        sender: 'ai' 
+      };
+      setMessages(prev => [...prev, aiMsg]);
+    } catch (e) {
+       console.error(e);
     } finally {
-      setIsThinking(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <section id={SectionId.MUSE} className="py-24 bg-aura-dark border-y border-white/5 relative overflow-hidden">
-      {/* Decorative background */}
-      <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-aura-accent/5 to-transparent pointer-events-none"></div>
+    <>
+      <button
+        onClick={() => setIsOpen(true)}
+        className={`fixed bottom-8 right-8 z-40 w-14 h-14 rounded-full bg-white text-black flex items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-110 transition-all duration-300 ${isOpen ? 'hidden' : 'flex'}`}
+      >
+        <Sparkles size={24} />
+      </button>
 
-      <div className="max-w-4xl mx-auto px-6 relative z-10">
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-aura-accent/10 text-aura-accent text-xs font-mono uppercase mb-4">
-            <Sparkles size={14} />
-            <span>由 Gemini 2.5 驱动</span>
-          </div>
-          <h2 className="text-4xl md:text-5xl font-display font-bold mb-4">设计灵感缪斯</h2>
-          <p className="text-gray-400">向我询问极简主义、色彩理论，或生成创意简报。</p>
-        </div>
-
-        <div className="bg-aura-black border border-white/10 rounded-xl overflow-hidden shadow-2xl min-h-[500px] flex flex-col">
-          {/* Chat Window */}
-          <div className="flex-1 p-6 overflow-y-auto h-[400px] scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
-            {messages.map((msg, idx) => (
-              <motion.div
-                key={idx}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`flex gap-4 mb-6 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            className="fixed bottom-8 right-8 z-50 w-full max-w-sm bg-aura-dark border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[500px]"
+          >
+            {/* Header */}
+            <div className="p-4 border-b border-white/10 flex justify-between items-center bg-black/20">
+              <div className="flex items-center gap-2">
+                <Sparkles className="text-aura-accent" size={18} />
+                <span className="font-display font-bold text-white">Muse AI</span>
+              </div>
+              <button 
+                onClick={() => setIsOpen(false)}
+                className="text-gray-400 hover:text-white transition-colors"
               >
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  msg.role === 'model' ? 'bg-aura-accent text-white' : 'bg-gray-700 text-gray-300'
-                }`}>
-                  {msg.role === 'model' ? <Bot size={16} /> : <User size={16} />}
-                </div>
-                
-                <div className={`max-w-[80%] p-4 rounded-lg text-sm leading-relaxed ${
-                  msg.role === 'model' 
-                    ? 'bg-white/5 border border-white/5 text-gray-200' 
-                    : 'bg-aura-accent/20 text-white border border-aura-accent/30'
-                }`}>
-                  {msg.text}
-                  {msg.isError && <span className="block mt-2 text-red-400 text-xs">System Error</span>}
-                </div>
-              </motion.div>
-            ))}
-            {isThinking && (
-               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-4 mb-6">
-                  <div className="w-8 h-8 rounded-full bg-aura-accent text-white flex items-center justify-center flex-shrink-0">
-                    <Bot size={16} />
-                  </div>
-                  <div className="bg-white/5 border border-white/5 rounded-lg p-4 flex items-center gap-2">
-                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
-                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100"></span>
-                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200"></span>
-                  </div>
-               </motion.div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input Area */}
-          <div className="p-4 border-t border-white/10 bg-aura-dark">
-            <form onSubmit={handleSend} className="relative flex items-center">
-               <Terminal className="absolute left-4 text-gray-500" size={18} />
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="询问 Aura 关于设计趋势..."
-                className="w-full bg-aura-black text-white pl-12 pr-12 py-4 rounded-lg focus:outline-none focus:ring-1 focus:ring-aura-accent border border-white/5 transition-all"
-                disabled={isThinking}
-              />
-              <button
-                type="submit"
-                disabled={!input.trim() || isThinking}
-                className="absolute right-2 p-2 bg-aura-accent text-white rounded-md hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <Send size={18} />
+                <X size={20} />
               </button>
-            </form>
-            <div className="mt-2 flex justify-center gap-2">
-                {['你的设计精神是什么？', '评价极简主义网站', '给我一个配色方案'].map((suggestion, i) => (
-                    <button 
-                        key={i}
-                        onClick={() => { setInput(suggestion); }}
-                        className="text-[10px] uppercase tracking-wider text-gray-500 hover:text-aura-accent border border-white/5 px-2 py-1 rounded transition-colors"
-                    >
-                        {suggestion}
-                    </button>
-                ))}
             </div>
-          </div>
-        </div>
-      </div>
-    </section>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-aura-black/50">
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[80%] p-3 rounded-2xl text-sm leading-relaxed ${
+                      msg.sender === 'user'
+                        ? 'bg-white text-black rounded-br-none'
+                        : 'bg-white/10 text-gray-200 rounded-bl-none'
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-white/10 p-3 rounded-2xl rounded-bl-none flex gap-1 items-center">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-75" />
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150" />
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input */}
+            <div className="p-4 border-t border-white/10 bg-black/20">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                  placeholder="询问关于设计的问题..."
+                  className="w-full bg-white/5 border border-white/10 rounded-full py-3 pl-4 pr-12 text-white text-sm focus:outline-none focus:border-aura-accent focus:bg-white/10 transition-all"
+                />
+                <button
+                  onClick={handleSend}
+                  disabled={!inputText.trim() || isLoading}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white text-black rounded-full flex items-center justify-center hover:bg-aura-accent hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Send size={14} />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 

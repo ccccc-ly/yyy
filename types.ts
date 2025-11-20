@@ -6,16 +6,8 @@ export interface Project {
   year: string;
 }
 
-export interface ChatMessage {
-  role: 'user' | 'model';
-  text: string;
-  isError?: boolean;
-}
-
 export enum SectionId {
   HERO = 'hero',
   PORTFOLIO = 'portfolio',
-  ABOUT = 'about',
-  MUSE = 'muse',
   CONTACT = 'contact',
 }
